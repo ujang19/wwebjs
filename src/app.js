@@ -1,7 +1,7 @@
 require('./routes');
 const express = require('express');
 const mongoose = require('mongoose');
-const { MongoStore } = require('wwebjs-mongo');  // MongoDB store for session management
+const { MongoStore } = require('wwebjs-mongo');  // Import MongoStore for session storage
 const { Client, RemoteAuth } = require('whatsapp-web.js');  // WhatsApp Web client and RemoteAuth strategy
 const { restoreSessions } = require('./sessions');  // Import session management logic
 const { logger } = require('./logger');  // Logger utility
@@ -10,7 +10,7 @@ const { handleUpgrade } = require('./websocket');  // WebSocket upgrade handling
 
 const app = express();
 
-// MongoDB URI for session storage (use your environment variable or fallback to localhost)
+// MongoDB URI for session storage
 const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/whatsapp_sessions';
 
 // Connect to MongoDB for session storage
@@ -23,7 +23,7 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
     process.exit(1);  // Exit if MongoDB connection fails
   });
 
-// Create MongoStore instance for session management
+// Set up the session store using MongoDB
 const store = new MongoStore({ mongoose: mongoose });
 
 // Initialize WhatsApp Web client with RemoteAuth and MongoDB session store
