@@ -1,7 +1,7 @@
-const { Client, RemoteAuth } = require('whatsapp-web.js');
 const mongoose = require('mongoose');
-const { MongoStore } = require('wwebjs-mongo');  // MongoDB store for session management
-const { logger } = require('./logger');  // Logger for logging
+const { Client, RemoteAuth } = require('whatsapp-web.js');
+const { MongoStore } = require('wwebjs-mongo');  // Import MongoStore
+const { logger } = require('./logger');
 
 // MongoDB URI for session storage
 const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/whatsapp_sessions';
@@ -19,32 +19,33 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
 const store = new MongoStore({ mongoose: mongoose });
 
 // Restore sessions from MongoDB
-const restoreSessions = () => {
-  // Use MongoDB-based session management (no need to use file system logic)
-  store.getAllSessions()  // Replace with appropriate MongoDB query to fetch all sessions
-    .then((sessionsData) => {
-      sessionsData.forEach((sessionData) => {
-        setupSession(sessionData.sessionId);  // Restore each session
-      });
-    })
-    .catch((err) => {
-      logger.error('Failed to restore sessions from MongoDB', err);
+const restoreSessions = async () => {
+  try {
+    // Fetch all session records from the MongoDB "sessions" collection
+    const sessionsData = await mongoose.connection.db.collection('sessions').find().toArray();
+
+    sessionsData.forEach((sessionData) => {
+      const sessionId = sessionData.sessionId;
+      logger.warn({ sessionId }, 'Existing session detected');
+      setupSession(sessionId, sessionData);  // Call setupSession to initialize each session
     });
+  } catch (err) {
+    logger.error('Failed to restore sessions from MongoDB', err);
+  }
 };
 
 // Setup the WhatsApp Web client for each session
-const setupSession = async (sessionId) => {
+const setupSession = async (sessionId, sessionData) => {
   try {
-    // Create client options
     const clientOptions = {
       puppeteer: {
         executablePath: process.env.CHROME_BIN,
-        headless: true, // Use headless mode for production
+        headless: true,  // Use headless mode for production
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
       },
       authStrategy: new RemoteAuth({
-        store: store, // Use MongoDB store for session management
-        backupSyncIntervalMs: 300000, // Sync session data every 5 minutes
+        store: store,  // Use MongoDB store for session management
+        backupSyncIntervalMs: 300000,  // Sync session data every 5 minutes
       }),
     };
 
@@ -52,11 +53,11 @@ const setupSession = async (sessionId) => {
     await client.initialize();
     logger.info(`Session ${sessionId} initialized successfully`);
 
-    // Save session to MongoDB
+    // Optionally save session data to MongoDB
     store.save({ session: sessionId, client });
 
   } catch (error) {
-    logger.error({ sessionId, err: error }, 'Failed to set up session');
+    logger.error({ sessionId }, 'Failed to set up session');
   }
 };
 
